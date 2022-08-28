@@ -5,52 +5,54 @@ import (
 	"flag"
 	"fmt"
 	"strconv"
+	"sync"
 )
-
-// Var prep
-var nbr_open int = 0
 
 func main() {
 
 	// Ask for an IP or a specific port or even a specific network protocol
 	ip := flag.String("h", "", "Select an IP address to scan")
-	unique_port := flag.String("p", "-1", "Select a unique port to scan")
+	uniquePort := flag.String("p", "-1", "Select a unique port to scan")
 	network := flag.String("n", "tcp", "Select a protocol")
-	full := flag.String("f", "none", "Select if you want a run on the 65000 ports, otherwise it'll run on the top 30 ports")
+	full := flag.String("f", "none", "Select if you want a run on the 65000 ports, otherwise it'll run on the 1024 first ports")
 	flag.Parse()
 
-	// ports definition
-	port := [30]string{
-		"20", "49", "63",
-		"21", "22", "23",
-		"25", "53", "79",
-		"80", "88", "110",
-		"111", "135", "137",
-		"443", "995", "993",
-		"631", "465", "143",
-		"123", "14147", "105",
-		"66", "143", "2224",
-		"8000", "8888", "3306"}
-
+	minPorts := 1024
 	maxPorts := 65000
 
-	// Simple bug slow alg
-	if *unique_port != "-1" {
-		nbr_open = Scanner.ScanUnique(*unique_port, *ip, *network, nbr_open)
+	// Generate port
+
+	// Initialisation
+	fmt.Println(Scanner.Purple + "[*] Scan initialisation [*]" + Scanner.Reset)
+
+	// handle thread
+	var wg sync.WaitGroup
+
+	// Simple port
+	if *uniquePort != "-1" {
+		wg.Add(1)
+		go Scanner.ScanUnique(*uniquePort, *ip, *network, &wg)
+
+		// TOP 100 ports
 	} else if *full == "none" {
-		for _, p := range port {
-			nbr_open = Scanner.ScanUnique(p, *ip, *network, nbr_open)
+		for i := 0; i < minPorts; i++ {
+			wg.Add(1)
+			go Scanner.ScanUnique(strconv.Itoa(i), *ip, *network, &wg)
 		}
+
+		// 65000 ports
 	} else {
 		// Don't use that before I put the thread in place ..
 		for i := 0; i < maxPorts; i++ {
-			nbr_open = Scanner.ScanUnique(string(rune(i)), *ip, *network, nbr_open)
+			wg.Add(1)
+			go Scanner.ScanUnique(strconv.Itoa(i), *ip, *network, &wg)
 		}
 	}
 
+	wg.Wait()
+
 	// End of the script
-	fmt.Println(" ")
-	fmt.Println("[*] Scan is finished with " + strconv.Itoa(nbr_open) + " ports open using the " + *network + " protocol [*]")
+	fmt.Println(Scanner.Purple + "[*] Scan is finished using the " + *network + " protocol on the " + *ip + " [*]" + Scanner.Reset)
 	fmt.Println(" ")
 
 }
